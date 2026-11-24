@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rozesílač poptávek</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: pracovní, věcný nástroj jednoho člověka – rychle vybrat, zkopírovat, odeslat.
+   IDEA: dispečerský pult – vlevo kartotéka vrakovišť, vpravo připravený e-mail jako výdejní okénko.
+   PICTURE: samotný e-mail (Komu / Předmět / Text) velký vpravo nahoře, se třemi kopírovacími tlačítky.
+   COLOUR and TYPE: barvy PoptejDílu – žlutá #f2b705, tmavá #14181f; Archivo na nadpisy, Inter na text.
+   LAYOUT: dva sloupce nad 900px (kartotéka | e-mail lepivý), pod tím e-mail nahoře a kartotéka pod ním. */
+:root{color-scheme:light dark;
+ --bg:light-dark(#f4f3ef,#111419);--card:light-dark(#fff,#1a1f27);--ink:light-dark(#14181f,#eceae4);
+ --muted:light-dark(#646a73,#a2a8b1);--line:light-dark(#e2dfd6,#2b323c);--y:#f2b705;--ydark:light-dark(#8a6500,#f2b705);
+ --ysoft:light-dark(#fff6d6,#2c2610);--ok:light-dark(#1f7a3f,#5fcf87);--oksoft:light-dark(#e7f5ec,#15281c);--field:light-dark(#fbfaf7,#141820)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:Archivo,system-ui,sans-serif;margin:0;text-wrap:balance}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--y);outline-offset:2px}
+header{background:#14181f;color:#f6f4ef;padding:14px max(16px,4vw);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;font-family:Archivo,sans-serif;font-weight:800;font-size:22px}
+.logo i{width:34px;height:34px;border-radius:9px;background:var(--y);display:grid;place-items:center}
+.logo b{color:var(--y)}
+header p{margin:0;color:#a8adb5;font-size:14px}
+main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:22px;padding:22px max(16px,4vw) 60px;max-width:1400px;margin:0 auto}
+@media(max-width:900px){main{grid-template-columns:minmax(0,1fr)}#mail{order:-1}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+#mail{position:sticky;top:16px;align-self:start;display:grid;gap:14px}
+@media(max-width:900px){#mail{position:static}}
+.step{display:flex;align-items:baseline;gap:10px}
+.step span{flex:none;width:28px;height:28px;border-radius:50%;background:var(--y);color:#14181f;font:800 15px Archivo,sans-serif;display:grid;place-items:center}
+.step h2{font-size:20px}
+label.l{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px}
+textarea,input[type=text],input[type=email],input[type=tel],select{width:100%;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:16px}
+textarea{resize:vertical;line-height:1.5}
+#req{min-height:150px}
+.out{display:grid;gap:4px}
+.out .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.out .val{background:var(--field);border:1px solid var(--line);border-radius:10px;padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;max-height:300px;overflow:auto}
+.out .val.empty{color:var(--muted);font-style:italic}
+.cp{flex:none;background:var(--y);color:#14181f;border:0;border-radius:10px;padding:9px 16px;font-weight:600;min-height:40px}
+.cp.ok{background:var(--ok);color:#fff}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:10px;padding:9px 14px;min-height:40px;font-weight:600}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.done{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.done .cp{background:var(--ink);color:var(--bg)}
+details{border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+summary{font-weight:600;cursor:pointer;min-height:28px}
+details[open] summary{margin-bottom:10px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.tags code{background:var(--ysoft);color:var(--ydark);border-radius:6px;padding:2px 7px;font-size:13px}
+/* kartotéka */
+#list{display:grid;gap:14px;align-content:start}
+.filters{display:grid;gap:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:500;min-height:36px}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.bar .acts{display:flex;gap:8px;flex-wrap:wrap}
+.yard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px}
+.yard.sel{border-color:var(--y);box-shadow:inset 0 0 0 1px var(--y);background:linear-gradient(var(--ysoft),var(--ysoft)) top/100% 0 no-repeat,var(--card)}
+.yard input[type=checkbox]{width:24px;height:24px;margin:2px 0 0;accent-color:#c99500;grid-row:span 4}
+.yh{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.yh h3{font-size:17px}
+.reg{font-size:12px;color:var(--muted);white-space:nowrap}
+.city{font-size:14px;color:var(--muted)}
+.note{font-size:14px}
+.contact{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;align-items:center;margin-top:4px}
+.contact .t{user-select:all;font-variant-numeric:tabular-nums}
+.contact a{color:var(--ydark);font-weight:500}
+.mini{border:0;background:var(--ysoft);color:var(--ydark);border-radius:7px;padding:4px 9px;font-size:13px;font-weight:600}
+.status{grid-column:2;display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.pill{font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--field);border:1px solid var(--line);color:var(--muted)}
+.pill.sent{background:var(--oksoft);color:var(--ok);border-color:transparent}
+.del{margin-left:auto;border:0;background:none;color:var(--muted);font-size:13px;text-decoration:underline}
+.add{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.add .full{grid-column:1/-1}
+@media(max-width:600px){.add{grid-template-columns:minmax(0,1fr)}}
+.toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#14181f;color:#fff;padding:10px 18px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;font-size:15px}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<header>
+ <div class="logo"><i><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#14181f" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></i><span>Poptej<b>Díl</b></span></div>
+ <p>Rozesílač poptávek vrakovištím – vyber, zkopíruj, odešli.</p>
+</header>
+
+<main>
+<section id="mail" class="panel" aria-label="E-mail pro vrakoviště">
+ <div class="step"><span>1</span><h2>Vlož poptávku z adminu</h2></div>
+ <textarea id="req" placeholder="Např.&#10;Škoda Octavia III combi, 2017, 2.0 TDI&#10;Hledaný díl: přední světlomet levý (xenon)&#10;Kraj: Ústecký&#10;VIN: TMBJG7NE5H0…"></textarea>
+
+ <div class="step"><span>2</span><h2>Vyber vrakoviště v seznamu a zkopíruj e-mail</h2></div>
+ <div class="out">
+  <div class="row"><label class="l" style="margin:0">Komu – vlož do <b>Skrytá kopie (Bcc)</b>, ať se vrakoviště navzájem nevidí</label><button class="cp" data-c="to">Kopírovat</button></div>
+  <div class="val" id="oTo"></div>
+ </div>
+ <div class="out">
+  <div class="row"><label class="l" style="margin:0">Předmět</label><button class="cp" data-c="subj">Kopírovat</button></div>
+  <div class="val" id="oSubj"></div>
+ </div>
+ <div class="out">
+  <div class="row"><label class="l" style="margin:0">Text e-mailu</label><button class="cp" data-c="body">Kopírovat</button></div>
+  <div class="val" id="oBody"></div>
+ </div>
+
+ <div class="step"><span>3</span><h2>Po odeslání si to zapiš</h2></div>
+ <div class="done">
+  <button class="cp" id="markSent">Zapsat odeslání vybraným</button>
+  <button class="ghost" id="clearAll">Nová poptávka</button>
+ </div>
+ <p class="hint" id="sentInfo">U vybraných vrakovišť se uloží dnešní datum, ať víš, komu už co šlo.</p>
+
+ <details>
+  <summary>Upravit šablonu e-mailu</summary>
+  <p class="hint">Šablona se pamatuje v tomhle prohlížeči. Zástupné značky se nahradí automaticky:</p>
+  <div class="tags"><code>{poptavka}</code><code>{prvni_radek}</code><code>{vrakoviste}</code></div>
+  <p class="hint"><code>{vrakoviste}</code> se vyplní jménem jen při jednom vybraném vrakovišti, jinak zmizí. Úvod z adminu před bodem 1) se vynechá automaticky.</p>
+  <label class="l" for="tSubj" style="margin-top:10px">Předmět</label>
+  <input type="text" id="tSubj">
+  <label class="l" for="tBody" style="margin-top:10px">Text</label>
+  <textarea id="tBody" rows="12"></textarea>
+  <div class="done" style="margin-top:10px"><button class="ghost" id="resetTpl">Vrátit výchozí šablonu</button></div>
+ </details>
+</section>
+
+<section id="list" aria-label="Vrakoviště">
+ <div class="panel filters">
+  <input type="text" id="q" placeholder="Hledat firmu, město, značku…" aria-label="Hledat">
+  <div class="chips" id="regions"></div>
+  <div class="bar"><span id="count"></span>
+   <div class="acts"><button class="ghost" id="selShown">Vybrat zobrazená</button><button class="ghost" id="selNone">Zrušit výběr</button></div>
+  </div>
+ </div>
+ <div id="yards" style="display:grid;gap:10px"></div>
+ <details class="panel">
+  <summary>Přidat vrakoviště</summary>
+  <form id="addForm" class="add">
+   <div class="full"><label class="l" for="aName">Název</label><input type="text" id="aName" required></div>
+   <div><label class="l" for="aRegion">Kraj</label><select id="aRegion"></select></div>
+   <div><label class="l" for="aCity">Město</label><input type="text" id="aCity"></div>
+   <div><label class="l" for="aEmail">E-mail</label><input type="email" id="aEmail"></div>
+   <div><label class="l" for="aPhone">Telefon</label><input type="tel" id="aPhone"></div>
+   <div class="full"><label class="l" for="aNote">Poznámka (značky, specializace)</label><input type="text" id="aNote"></div>
+   <div class="full"><button class="cp" type="submit">Přidat</button></div>
+  </form>
+ </details>
+</section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+{
+const BASE=[
+ [1,"Lukáš Gregor – Vrakoviště Renault","Hlavní město Praha","Praha-Dolní Měcholupy","+420 723 584 244","vrakoviste.renault@seznam.cz","https://renault-autovrakoviste.cz","Specializace na vozy Renault"],
+ [2,"Autodíly Vojkov s.r.o.","Středočeský kraj","Tehovec-Mukařov","+420 734 880 088","info@autodilyvojkov.cz","https://autodilyvojkov.cz","Jeden z největších prodejců použitých dílů v ČR"],
+ [3,"Levnedily.cz","Středočeský kraj","Přišimasy","+420 777 815 600","info@levnedily.cz","https://levnedily.cz","Koncern VW, Audi, Škoda, SEAT"],
+ [4,"Vrakoviště korejských vozů Kladno","Středočeský kraj","Kladno-Dubí","+420 723 469 100","korejci@korejci.cz","https://vrakovisteaut.cz","Hyundai, Kia, Daewoo, Chevrolet"],
+ [5,"AUTOVRAKOV s.r.o.","Jihočeský kraj","Ševětín","+420 777 816 749","cipera@autovrakov.cz","https://autovrakov.cz","Prodej dílů a ekologická likvidace"],
+ [6,"Autodíly – Vrakování – Jan Walter","Plzeňský kraj","Plzeň","+420 777 152 637","auto-walter@volny.cz","https://auto-walter.cz","Široký sortiment použitých dílů"],
+ [7,"AUTONEON s.r.o.","Plzeňský kraj","Chotíkov u Plzně","+420 728 637 363","info@autoneon.cz","https://autoneon.cz","Prodej autodílů a vrakoviště"],
+ [8,"Auto Dolejš – autovrakoviště","Plzeňský kraj","Hradiště / Koloveč","+420 606 520 598","info@auto-dolejs.cz","https://auto-dolejs.cz","Použité náhradní díly"],
+ [9,"Autoobchod Petr Zedník","Karlovarský kraj","Jenišov u Karlových Varů","+420 602 414 679","","","Nutno kontaktovat telefonicky"],
+ [10,"Bohemia scrap, s.r.o.","Ústecký kraj","Bohušovice nad Ohří","+420 735 267 069","likvidacebs@seznam.cz","https://likvidaceaut.net","Autovrakoviště a prodej dílů"],
+ [11,"JH-Trade Autolikvidace","Ústecký kraj","Teplice","+420 603 331 999","vraky@jh-trade.cz","https://jh-trade.cz","Prodej použitých autodílů"],
+ [12,"AUTO-EXTRA, spol. s r.o.","Ústecký kraj","Malšovice / Děčín","+420 608 933 888","info@autoextra.eu","https://autoextra.eu","Autovrakoviště a e-shop s díly"],
+ [13,"Autovrakoviště Liberec u letiště","Liberecký kraj","Liberec","+420 602 955 049","a.vrak.letiste@volny.cz","https://vrakoviste-liberec.cz","Prodej použitých dílů"],
+ [14,"Šrot Ramš s.r.o.","Liberecký kraj","Sosnová u České Lípy","+420 725 808 100","srot-rams.cz@seznam.cz","https://srot-rams.cz","Autovrakoviště a prodej dílů"],
+ [15,"Autoslužby Vik – Autovrakoviště","Královéhradecký kraj","Provodov-Šonov","+420 608 066 699","autovrakovistevik@seznam.cz","https://autovrakovistevik.cz","Velký sklad použitých autodílů"],
+ [16,"Autovraky Desenský","Pardubický kraj","Choltice","+420 604 749 149","info@desensky.cz","https://autovraky-desensky.cz","Prodej náhradních dílů"],
+ [17,"Auto ND Vysočina – Filip Jílek","Kraj Vysočina","Jimramov","+420 775 904 081","fjilek@seznam.cz","https://autondvysocina.cz","Použité náhradní díly"],
+ [18,"Auto Global – Maxi Vrakoviště","Jihomoravský kraj","Česká u Brna","+420 604 703 705","auto-global@volny.cz","https://maxivrakoviste.cz","Rozsáhlý prodej dílů u Brna"],
+ [19,"Autovrakoviště D&D spol. s r.o.","Jihomoravský kraj","Vracov","+420 603 848 853","vrakovistevracov@seznam.cz","https://vrakovistevracov.cz","Velké vrakoviště na jižní Moravě"],
+ [20,"Autovrakoviště Olomouc – Velká Bystřice","Olomoucký kraj","Velká Bystřice","+420 608 800 361","info@autovrak.eu","https://autovrak.eu","Prodej použitých autodílů"],
+ [21,"Autovrakoviště Morava","Olomoucký kraj","Olomouc-Holice","+420 732 801 345","mirdasima@seznam.cz","https://autovrakovistemorava.cz","Použité díly více značek"],
+ [22,"Autovrakoviště Polom – Miloslav Kunat","Olomoucký kraj","Polom","+420 774 706 687","autovrakoviste.polom@seznam.cz","https://autovrakoviste-polom.cz","Přímá linka na prodej dílů"],
+ [23,"Autovrak Zlín – Ing. Michaela Habrovanská","Zlínský kraj","Bohuslavice u Zlína","+420 722 662 662","autovrakzlin@email.cz","https://autovrakzlin.cz","Prodej použitých dílů"],
+ [24,"Vrakoviště Milata s.r.o.","Moravskoslezský kraj","Dobrá u Frýdku-Místku","+420 720 126 127","info@milata.cz","https://milata.cz","Jedno z největších vrakovišť na Moravě"],
+ [25,"Autovrakoviště Sviadnov – Stuchla","Moravskoslezský kraj","Sviadnov","+420 606 781 111","stuchla@stuchla.cz","https://stuchla.cz","Přímá linka na náhradní díly"]
+].map(r=>({id:r[0],name:r[1],region:r[2],city:r[3],phone:r[4],email:r[5],web:r[6],note:r[7]}));
+const REGIONS=["Hlavní město Praha","Středočeský kraj","Jihočeský kraj","Plzeňský kraj","Karlovarský kraj","Ústecký kraj","Liberecký kraj","Královéhradecký kraj","Pardubický kraj","Kraj Vysočina","Jihomoravský kraj","Olomoucký kraj","Zlínský kraj","Moravskoslezský kraj"];
+const DEF_SUBJ="Poptávka použitých dílů";
+const DEF_BODY=`Dobrý den,
+
+sháníme pro zákazníky tyto díly:
+
+{poptavka}`;
+
+const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+
+let extra=ls.get('pd_extra',[]);
+let sent=ls.get('pd_sent',{});           // id -> {date, count}
+let selected=new Set(ls.get('pd_sel',[]));
+let region='ALL';
+const all=()=>BASE.concat(extra);
+
+$('tSubj').value=ls.get('pd_tsubj4',DEF_SUBJ);
+$('tBody').value=ls.get('pd_tbody4',DEF_BODY);
+$('req').value=ls.get('pd_req','');
+$('aRegion').innerHTML=REGIONS.map(r=>`<option>${esc(r)}</option>`).join('');
+
+function shown(){
+ const q=$('q').value.trim().toLowerCase();
+ return all().filter(s=>(region==='ALL'||s.region===region)&&(!q||[s.name,s.city,s.note,s.region].join(' ').toLowerCase().includes(q)));
+}
+function fmt(d){const x=new Date(d);return x.toLocaleDateString('cs-CZ',{day:'numeric',month:'numeric'})}
+
+function renderRegions(){
+ const counts={};all().forEach(s=>counts[s.region]=(counts[s.region]||0)+1);
+ const list=[['ALL','Všechny kraje',all().length]].concat(REGIONS.filter(r=>counts[r]).map(r=>[r,r.replace(' kraj','').replace('Hlavní město ',''),counts[r]]));
+ $('regions').innerHTML=list.map(([v,l,n])=>`<button class="chip" data-r="${esc(v)}" aria-pressed="${region===v}">${esc(l)} ${n}</button>`).join('');
+}
+function renderYards(){
+ const sh=shown();
+ $('count').textContent=`${sh.length} vrakovišť · vybráno ${selected.size}`;
+ $('yards').innerHTML=sh.map(s=>{
+  const st=sent[s.id];const on=selected.has(s.id);const own=s.id>1000;
+  return `<article class="yard${on?' sel':''}">
+   <input type="checkbox" data-sel="${s.id}" ${on?'checked':''} ${s.email?'':'disabled title="Nemá e-mail"'} aria-label="Vybrat ${esc(s.name)}">
+   <div class="yh"><h3>${esc(s.name)}</h3><span class="reg">${esc(s.region)}</span></div>
+   <div class="city">${esc(s.city)}${s.note?' · '+esc(s.note):''}</div>
+   <div class="contact">
+    ${s.email?`<span class="t">${esc(s.email)}</span><button class="mini" data-copy="${esc(s.email)}">Kopírovat</button>`:'<span class="city">bez e-mailu – jen telefon</span>'}
+    <span class="t">${esc(s.phone)}</span>
+    ${s.web?`<a href="${esc(s.web)}" target="_blank" rel="noopener">web</a>`:''}
+   </div>
+   <div class="status">${st?`<span class="pill sent">Posláno ${fmt(st.date)} · celkem ${st.count}×</span>`:'<span class="pill">Zatím nic neposláno</span>'}${own?`<button class="del" data-del="${s.id}">Smazat</button>`:''}</div>
+  </article>`}).join('')||'<p class="hint">Nic neodpovídá hledání.</p>';
+}
+function fill(tpl,one){
+ let req=$('req').value.trim();
+ const m=req.match(/^\s*1[).]\s/m); if(m) req=req.slice(m.index).trim();
+ const first=(req.split('\n').find(l=>l.trim())||'').trim().slice(0,90);
+ return tpl.replaceAll('{poptavka}',req||'[sem přijde poptávka]').replaceAll('{prvni_radek}',first||'použitý díl').replaceAll('{vrakoviste}',one?', '+one.name:'');
+}
+function renderMail(){
+ const sel=all().filter(s=>selected.has(s.id)&&s.email);
+ const one=sel.length===1?sel[0]:null;
+ const to=sel.map(s=>s.email).join(', ');
+ $('oTo').textContent=to||'Zaškrtni vrakoviště v seznamu.';$('oTo').classList.toggle('empty',!to);
+ $('oSubj').textContent=fill($('tSubj').value,one);
+ $('oBody').textContent=fill($('tBody').value,one);
+ $('oBody').classList.toggle('empty',!$('req').value.trim());
+ $('markSent').textContent=sel.length?`Zapsat odeslání (${sel.length})`:'Zapsat odeslání vybraným';
+}
+function render(){renderRegions();renderYards();renderMail();ls.set('pd_sel',[...selected])}
+
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
+function copy(text,btn,el){
+ const ok=()=>{if(btn){const l=btn.textContent;btn.textContent='Zkopírováno';btn.classList.add('ok');setTimeout(()=>{btn.textContent=l;btn.classList.remove('ok')},1500)}};
+ const fb=()=>{if(el){const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r)}toast('Text je označený – zkopíruj ho Ctrl+C')};
+ try{navigator.clipboard.writeText(text).then(ok,fb)}catch(e){fb()}
+}
+
+$('regions').addEventListener('click',e=>{const b=e.target.closest('[data-r]');if(!b)return;region=b.dataset.r;render()});
+$('q').addEventListener('input',renderYards);
+$('yards').addEventListener('change',e=>{const id=+e.target.dataset.sel;if(!id)return;e.target.checked?selected.add(id):selected.delete(id);render()});
+$('yards').addEventListener('click',e=>{
+ const c=e.target.closest('[data-copy]');if(c){copy(c.dataset.copy,c);return}
+ const d=e.target.closest('[data-del]');if(d){const id=+d.dataset.del;if(d.dataset.sure){extra=extra.filter(s=>s.id!==id);selected.delete(id);ls.set('pd_extra',extra);render();toast('Vrakoviště smazáno')}else{d.dataset.sure=1;d.textContent='Opravdu smazat?'}}
+});
+$('selShown').addEventListener('click',()=>{shown().forEach(s=>s.email&&selected.add(s.id));render()});
+$('selNone').addEventListener('click',()=>{selected.clear();render()});
+document.querySelectorAll('[data-c]').forEach(b=>b.addEventListener('click',()=>{
+ const k=b.dataset.c,el={to:$('oTo'),subj:$('oSubj'),body:$('oBody')}[k];
+ if(k==='to'&&!selected.size){toast('Nejdřív vyber vrakoviště');return}
+ copy(el.textContent,b,el);
+}));
+$('req').addEventListener('input',()=>{ls.set('pd_req',$('req').value);renderMail()});
+$('tSubj').addEventListener('input',()=>{ls.set('pd_tsubj4',$('tSubj').value);renderMail()});
+$('tBody').addEventListener('input',()=>{ls.set('pd_tbody4',$('tBody').value);renderMail()});
+$('resetTpl').addEventListener('click',()=>{$('tSubj').value=DEF_SUBJ;$('tBody').value=DEF_BODY;ls.set('pd_tsubj4',DEF_SUBJ);ls.set('pd_tbody4',DEF_BODY);renderMail();toast('Šablona vrácena')});
+$('markSent').addEventListener('click',()=>{
+ const sel=all().filter(s=>selected.has(s.id)&&s.email);if(!sel.length){toast('Nejdřív vyber vrakoviště');return}
+ const now=new Date().toISOString();sel.forEach(s=>{const o=sent[s.id]||{count:0};sent[s.id]={date:now,count:o.count+1}});
+ ls.set('pd_sent',sent);render();toast(`Zapsáno u ${sel.length} vrakovišť`);
+});
+$('clearAll').addEventListener('click',()=>{$('req').value='';ls.set('pd_req','');selected.clear();render();$('req').focus()});
+$('addForm').addEventListener('submit',e=>{
+ e.preventDefault();const id=Date.now();
+ extra.push({id,name:$('aName').value.trim(),region:$('aRegion').value,city:$('aCity').value.trim(),phone:$('aPhone').value.trim(),email:$('aEmail').value.trim(),web:'',note:$('aNote').value.trim()});
+ ls.set('pd_extra',extra);e.target.reset();render();toast('Vrakoviště přidáno');
+});
+render();
+}
+</script>
+</body>
+</html>
